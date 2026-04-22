@@ -1,0 +1,16 @@
+{
+  "phases": [
+    {
+      "dir": "0-mvp",
+      "status": "pending"
+    },
+    {
+      "dir": "1-polish",
+      "status": "pending"
+    },
+    {
+      "dir": "maintenance",
+      "status": "pending"
+    }
+  ]
+}

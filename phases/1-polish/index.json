@@ -1,0 +1,32 @@
+{
+  "project": "{프로젝트명}",
+  "phase": "polish",
+  "rules": ["coding-style", "karpathy-guidelines", "security", "testing", "performance"],
+  "steps": [
+    {
+      "step": 0,
+      "name": "error-handling",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "security-hardening",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "performance-audit",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "docs-update",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "e2e-test",
+      "status": "pending"
+    }
+  ]
+}

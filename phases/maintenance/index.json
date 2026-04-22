@@ -1,0 +1,27 @@
+{
+  "project": "{프로젝트명}",
+  "phase": "maintenance",
+  "rules": ["coding-style", "karpathy-guidelines", "security", "testing"],
+  "steps": [
+    {
+      "step": 0,
+      "name": "bugfix-critical",
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "refactor-hotspot",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "deps-update",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "test-coverage",
+      "status": "pending"
+    }
+  ]
+}

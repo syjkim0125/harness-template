@@ -1,0 +1,9 @@
+[project]
+name = "harness-scripts"
+version = "0.1.0"
+description = "Harness Step Executor and tests"
+requires-python = ">=3.10"
+dependencies = ["pytest>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
