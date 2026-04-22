@@ -17,12 +17,21 @@ python3 scripts/execute.py 0-mvp
 git clone <template-repo-url> /tmp/harness-template
 
 # 내 프로젝트 루트에서 한 번에 적용
+# 기술 스택 자동 감지 (--stack 생략 가능)
 python3 /tmp/harness-template/scripts/execute.py apply {내프로젝트경로} \
-  --project-name {프로젝트명} --stack "{기술스택}"
+  --project-name {프로젝트명}
+
+# 또는 기술 스택 직접 지정
+python3 /tmp/harness-template/scripts/execute.py apply {내프로젝트경로} \
+  --project-name {프로젝트명} --stack "{기술 스택}"
 ```
 
 예시:
 ```bash
+python3 /tmp/harness-template/scripts/execute.py apply ~/projects/my-app \
+  --project-name MyApp
+# → 자동 감지: Next.js, TypeScript, PostgreSQL
+
 python3 /tmp/harness-template/scripts/execute.py apply ~/projects/my-app \
   --project-name MyApp --stack "Next.js 16, TypeScript, PostgreSQL"
 ```
@@ -60,11 +69,11 @@ python3 /tmp/harness-template/scripts/execute.py apply ~/projects/my-app \
 ## 명령어
 
 ```bash
-# 템플릿을 내 프로젝트에 한 번에 적용
+# 템플릿을 내 프로젝트에 한 번에 적용 (기술 스택 자동 감지)
 python3 scripts/execute.py apply /path/to/project \
-  --project-name MyProject --stack "Next.js, TypeScript, PostgreSQL"
+  --project-name MyProject
 
-# 신규 프로젝트 MVP phase 실행
+# MVP phase 실행
 python3 scripts/execute.py 0-mvp
 
 # MVP 완성도 향상

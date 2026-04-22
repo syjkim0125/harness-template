@@ -58,6 +58,135 @@ def progress_indicator(label: str):
 #  apply — 기존 프로젝트에 하네스 템플릿 적용
 # =========================================================================
 
+def _detect_tech_stack(target: Path) -> str:
+    """대상 프로젝트의 기술 스택을 분석하여 반환한다."""
+    detected = []
+
+    # 언어/프레임워크 감지 맵
+    detectors = {
+        # Node.js / JS
+        ("package.json",): lambda c: _parse_package_json(c),
+        # Python
+        ("requirements.txt",): lambda c: "Python" if c.strip() else None,
+        ("pyproject.toml",): lambda c: "Python" if c.strip() else None,
+        ("Pipfile",): lambda c: "Python" if c.strip() else None,
+        # Rust
+        ("Cargo.toml",): lambda c: "Rust" if c.strip() else None,
+        # Go
+        ("go.mod",): lambda c: "Go" if c.strip() else None,
+        # Java / Kotlin
+        ("pom.xml",): lambda c: "Java" if c.strip() else None,
+        ("build.gradle",): lambda c: "Java" if c.strip() else None,
+        ("build.gradle.kts",): lambda c: "Java/Kotlin" if c.strip() else None,
+        # Ruby
+        ("Gemfile",): lambda c: "Ruby" if c.strip() else None,
+        # Swift
+        ("Package.swift",): lambda c: "Swift" if c.strip() else None,
+        # Docker
+        ("Dockerfile",): lambda c: "Docker" if c.strip() else None,
+        ("docker-compose.yml",): lambda c: "Docker Compose" if c.strip() else None,
+        ("docker-compose.yaml",): lambda c: "Docker Compose" if c.strip() else None,
+        # Infra
+        ("terraform.tf",): lambda c: "Terraform" if c.strip() else None,
+        # TypeScript config
+        ("tsconfig.json",): lambda c: "TypeScript" if c.strip() else None,
+    }
+
+    for files, parser in detectors.items():
+        for fname in files:
+            fpath = target / fname
+            if fpath.exists():
+                try:
+                    content = fpath.read_text(encoding="utf-8")
+                    result = parser(content)
+                    if result:
+                        if isinstance(result, list):
+                            detected.extend(result)
+                        else:
+                            detected.append(result)
+                except Exception:
+                    pass
+                break
+
+    if not detected:
+        return ""
+
+    # 중복 제거, 순서 유지
+    seen = set()
+    unique = []
+    for item in detected:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+
+    return ", ".join(unique)
+
+
+def _parse_package_json(content: str) -> list[str]:
+    """package.json을 분석하여 기술 스택을 반환한다."""
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        return ["Node.js"]
+
+    deps = {}
+    deps.update(data.get("dependencies", {}))
+    deps.update(data.get("devDependencies", {}))
+
+    stack = ["Node.js"]
+
+    # TypeScript 체크
+    if "typescript" in deps or "tsconfig.json" in [str(p.name) for p in Path(content[:0] or ".").parent.glob("tsconfig.json")]:
+        stack.append("TypeScript")
+
+    # 프레임워크 감지
+    frameworks = {
+        "next": "Next.js",
+        "react": "React",
+        "vue": "Vue.js",
+        "@angular/core": "Angular",
+        "svelte": "Svelte",
+        "remix": "Remix",
+        "gatsby": "Gatsby",
+        "express": "Express",
+        "fastify": "Fastify",
+        "nestjs": "NestJS",
+        "@nestjs/core": "NestJS",
+        "hono": "Hono",
+        "elysia": "Elysia",
+        "tailwindcss": "Tailwind CSS",
+        "@tailwindcss/vite": "Tailwind CSS",
+    }
+    for dep, name in frameworks.items():
+        if dep in deps:
+            stack.append(name)
+
+    # DB/ORM 감지
+    databases = {
+        "prisma": "Prisma",
+        "@prisma/client": "Prisma",
+        "typeorm": "TypeORM",
+        "sequelize": "Sequelize",
+        "drizzle-orm": "Drizzle",
+        "pg": "PostgreSQL",
+        "postgres": "PostgreSQL",
+        "mysql2": "MySQL",
+        "sqlite3": "SQLite",
+        "mongodb": "MongoDB",
+        "mongoose": "MongoDB",
+        "@supabase/supabase-js": "Supabase",
+        "firebase": "Firebase",
+        "@firebase/app": "Firebase",
+        "redis": "Redis",
+        "ioredis": "Redis",
+    }
+    for dep, name in databases.items():
+        if dep in deps:
+            stack.append(name)
+
+    return stack
+
+
 def _apply_template(target: Path, *, project_name: Optional[str], tech_stack: Optional[str]) -> None:
     """템플릿 파일들을 대상 프로젝트에 복사하고 placeholder를 치환한다."""
 
@@ -627,7 +756,7 @@ Examples:
     apply_parser = subparsers.add_parser("apply", help="기존 프로젝트에 하네스 템플릿 적용")
     apply_parser.add_argument("target", help="적용할 프로젝트 루트 경로")
     apply_parser.add_argument("--project-name", default=None, help="프로젝트명 (기본: 디렉토리명)")
-    apply_parser.add_argument("--stack", default=None, help="기술 스택 (예: Next.js, TypeScript, PostgreSQL)")
+    apply_parser.add_argument("--stack", default=None, help="기술 스택 (미지정 시 자동 감지)")
 
     # execute 서브커맨드 (기본)
     exec_parser = subparsers.add_parser("execute", help="Phase step 실행")
@@ -645,7 +774,16 @@ Examples:
         if not target.is_dir():
             print(f"ERROR: {target} is not a directory")
             sys.exit(1)
-        _apply_template(target, project_name=args.project_name, tech_stack=args.stack)
+
+        stack = args.stack
+        if not stack:
+            detected = _detect_tech_stack(target)
+            if detected:
+                print(f"\n  자동 감지된 기술 스택: {detected}")
+                print(f"  (직접 지정하려면 --stack 옵션 사용)")
+                stack = detected
+
+        _apply_template(target, project_name=args.project_name, tech_stack=stack)
     elif args.command == "execute":
         StepExecutor(args.exec_phase, auto_push=args.push).run()
     elif args.phase_dir:
