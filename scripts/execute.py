@@ -55,11 +55,350 @@ def progress_indicator(label: str):
 
 
 # =========================================================================
+#  step 파일 자동 생성 — 감지된 스택에 맞춰 step 내용 생성
+# =========================================================================
+
+STEP_TEMPLATES: dict[str, dict] = {
+    "Python": {
+        "0-mvp": [
+            (
+                "project-setup",
+                "# Step 0: 프로젝트 초기 설정\n"
+                "\n## 작업 내용\n"
+                "- Python 가상환경 생성 및 활성화 (`python -m venv .venv`)\n"
+                "- 패키지 매니저 초기화 (`pyproject.toml` 또는 `requirements.txt`)\n"
+                "- 의존성 설치: 프레임워크, ORM, 테스트 도구, 린터(`ruff`)\n"
+                "- 프로젝트 스캐폴딩: `src/`, `tests/`, `config/` 디렉토리\n"
+                "- 환경변수 설정 (`.env.example` → `.env`)\n"
+                "- 린트/포맷터/테스트 프레임워크 설정\n"
+                "- Git 저장소 초기화 및 `.gitignore` 적용\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] `pip install -e .` (또는 `uv sync`) 성공\n"
+                "- [ ] `uv run src/main.py` 실행 시 서버 시작 (또는 `python -m src.main`)\n"
+                "- [ ] `ruff check src/` 에러 없이 통과\n"
+                "- [ ] `.env` 파일에서 기본 설정 읽음\n"
+                "- [ ] 빈 테스트 스위트 실행 성공 (`pytest`)\n",
+            ),
+            (
+                "core-logic",
+                "# Step 1: 핵심 비즈니스 로직\n"
+                "\n## 작업 내용\n"
+                "- 도메인 모델 정의 (Pydantic `BaseModel` 또는 dataclass)\n"
+                "- 핵심 비즈니스 로직 구현 (서비스 레이어, 순수 함수 우선)\n"
+                "- 데이터 접근 계층 설정 (SQLAlchemy ORM 또는 peewee 등)\n"
+                "- 단위 테스트 작성 (pytest)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] 핵심 엔티티 CRUD 동작 (메모리 또는 임시 DB)\n"
+                "- [ ] 단위 테스트 통과 (`pytest --cov=src`, 커버리지 80%+)\n"
+                "- [ ] 비즈니스 로직이 순수 함수로 분리됨 (외부 의존성 없음)\n",
+            ),
+            (
+                "api-layer",
+                "# Step 2: API 레이어\n"
+                "\n## 작업 내용\n"
+                "- REST API 엔드포인트 정의 (FastAPI router 또는 Flask Blueprint)\n"
+                "- 컨트롤러/라우터 구현 (요청 → 서비스 → 응답)\n"
+                "- 요청 검증 (Pydantic `BaseModel` / marshmallow 스키마)\n"
+                "- 인증/인가 미들웨어 적용\n"
+                "- 통합 테스트 작성 (httpx TestClient 또는 pytest)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] 주요 API 엔드포인트 CRUD 동작 (`httpx.TestClient`로 검증)\n"
+                "- [ ] 입력 검증 실패 시 400 응답 (자동 Pydantic 검증)\n"
+                "- [ ] 인증 없이 보호된 엔드포인트 접근 시 401 응답\n"
+                "- [ ] API 응답 포맷이 api-conventions.md 규칙 준수\n",
+            ),
+        ],
+        "1-polish": [
+            ("error-handling", "# Step 0: 에러 핸들링 정비"),
+            ("security-hardening", "# Step 1: 보안 강화"),
+            ("performance-audit", "# Step 2: 성능 감사"),
+            ("docs-refinement", "# Step 3: 문서 정비"),
+            ("e2e-testing", "# Step 4: E2E 테스트"),
+        ],
+        "maintenance": [
+            ("bugfix-critical", "# Step 0: 치명적 버그 수정"),
+            ("refactor-hotspot", "# Step 1: 핫스팟 리팩토링"),
+            ("deps-update", "# Step 2: 의존성 업데이트"),
+            ("test-coverage", "# Step 3: 테스트 커버리지 개선"),
+        ],
+    },
+    "Go": {
+        "0-mvp": [
+            (
+                "project-setup",
+                "# Step 0: 프로젝트 초기 설정\n"
+                "\n## 작업 내용\n"
+                "- Go 모듈 초기화 (`go mod init`)\n"
+                "- 의존성 설치: 웹 프레임워크, ORM, 테스트 도구, 린터(`golangci-lint`)\n"
+                "- 프로젝트 스캐폴딩: `cmd/`, `internal/`, `pkg/`, `config/`\n"
+                "- 환경변수 설정 (`.env.example` → `.env`)\n"
+                "- 빌드/테스트/린트 설정 (`Makefile` 또는 `Taskfile.yml`)\n"
+                "- Git 저장소 초기화\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] `go build ./...` 성공\n"
+                "- [ ] `go run cmd/server/main.go` 실행 시 서버 시작\n"
+                "- [ ] `golangci-lint run` 에러 없이 통과\n"
+                "- [ ] 빈 테스트 스위트 실행 성공 (`go test ./...`)\n",
+            ),
+            (
+                "core-logic",
+                "# Step 1: 핵심 비즈니스 로직\n"
+                "\n## 작업 내용\n"
+                "- 도메인 모델 정의 (struct + interface)\n"
+                "- 핵심 비즈니스 로직 구현 (internal/service/, 순수 함수 우선)\n"
+                "- 데이터 접근 계층 설정 (internal/repository/, GORM 또는 sqlx)\n"
+                "- 단위 테스트 작성 (표준 `testing` + testify)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] 핵심 엔티티 CRUD 동작 (인터페이스 기반 모킹)\n"
+                "- [ ] 단위 테스트 통과 (`go test ./... -cover`, 커버리지 80%+)\n"
+                "- [ ] 비즈니스 로직이 인터페이스로 분리됨 (의존성 주입)\n",
+            ),
+            (
+                "api-layer",
+                "# Step 2: API 레이어\n"
+                "\n## 작업 내용\n"
+                "- REST API 라우트 정의 (chi, gin, 또는 표준 `net/http`)\n"
+                "- HTTP 핸들러 구현 (요청 검증 → 서비스 → JSON 응답)\n"
+                "- 요청 검증 (구조체 태그 기반 또는 go-playground/validator)\n"
+                "- 인증/인가 미들웨어 적용 (JWT, CORS)\n"
+                "- 통합 테스트 작성 (`httptest`)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] 주요 API 엔드포인트 CRUD 동작 (`httptest.NewRecorder`로 검증)\n"
+                "- [ ] 입력 검증 실패 시 400 응답 (자동 구조체 검증)\n"
+                "- [ ] 인증 없이 보호된 엔드포인트 접근 시 401 응답\n"
+                "- [ ] API 응답 포맷이 api-conventions.md 규칙 준수\n",
+            ),
+        ],
+        "1-polish": [
+            ("error-handling", "# Step 0: 에러 핸들링 정비"),
+            ("security-hardening", "# Step 1: 보안 강화"),
+            ("performance-audit", "# Step 2: 성능 감사"),
+            ("docs-refinement", "# Step 3: 문서 정비"),
+            ("e2e-testing", "# Step 4: E2E 테스트"),
+        ],
+        "maintenance": [
+            ("bugfix-critical", "# Step 0: 치명적 버그 수정"),
+            ("refactor-hotspot", "# Step 1: 핫스팟 리팩토링"),
+            ("deps-update", "# Step 2: 의존성 업데이트"),
+            ("test-coverage", "# Step 3: 테스트 커버리지 개선"),
+        ],
+    },
+    "Rust": {
+        "0-mvp": [
+            (
+                "project-setup",
+                "# Step 0: 프로젝트 초기 설정\n"
+                "\n## 작업 내용\n"
+                "- Cargo 프로젝트 초기화 (`cargo init`)\n"
+                "- 의존성 설정: 웹 프레임워크 (axum/actix), ORM (sea-orm/sqlx), serde, tracing\n"
+                "- 프로젝트 구조: `src/bin/`, `src/api/`, `src/domain/`, `src/infra/`\n"
+                "- 환경변수 설정 (`.env.example` → `.env`, dotenvy)\n"
+                "- 린트/포맷 설정 (`cargo clippy`, `cargo fmt`)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] `cargo build` 성공\n"
+                "- [ ] `cargo run` 실행 시 서버 시작\n"
+                "- [ ] `cargo clippy` 에러 없이 통과 (또는 경고만)\n"
+                "- [ ] `cargo test` 통과 (빈 테스트 포함)\n",
+            ),
+            (
+                "core-logic",
+                "# Step 1: 핵심 비즈니스 로직\n"
+                "\n## 작업 내용\n"
+                "- 도메인 모델 정의 (struct + trait)\n"
+                "- 비즈니스 로직 구현 (src/domain/, 순수 함수)\n"
+                "- 데이터 접근 레이어 설정 (src/infra/, sea-orm 또는 sqlx)\n"
+                "- 단위 테스트 작성 (표준 `#[test]`)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] 핵심 엔티티 CRUD 동작 (인메모리 리포지토리로 테스트)\n"
+                "- [ ] `cargo test` 전체 통과 (커버리지 목표)\n"
+                "- [ ] 비즈니스 로직이 트레이트로 분리됨 (의존성 주입)\n",
+            ),
+            (
+                "api-layer",
+                "# Step 2: API 레이어\n"
+                "\n## 작업 내용\n"
+                "- REST API 라우트 정의 (axum Router 또는 actix-web)\n"
+                "- HTTP 핸들러 구현 (요청 추출 → 서비스 → JSON 응답)\n"
+                "- 요청 검증 (serde + validator)\n"
+                "- 인증/인가 미들웨어 (JWT, tower 레이어)\n"
+                "- 통합 테스트 (`axum::Router` 또는 `actix_web::test`)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] 주요 API 엔드포인트 CRUD 동작\n"
+                "- [ ] 입력 검증 실패 시 400 응답 (serde 역직렬화 에러)\n"
+                "- [ ] 인증 없이 보호된 엔드포인트 접근 시 401 응답\n"
+                "- [ ] API 응답 포맷이 api-conventions.md 규칙 준수\n",
+            ),
+        ],
+        "1-polish": [
+            ("error-handling", "# Step 0: 에러 핸들링 정비"),
+            ("security-hardening", "# Step 1: 보안 강화"),
+            ("performance-audit", "# Step 2: 성능 감사"),
+            ("docs-refinement", "# Step 3: 문서 정비"),
+            ("e2e-testing", "# Step 4: E2E 테스트"),
+        ],
+        "maintenance": [
+            ("bugfix-critical", "# Step 0: 치명적 버그 수정"),
+            ("refactor-hotspot", "# Step 1: 핫스팟 리팩토링"),
+            ("deps-update", "# Step 2: 의존성 업데이트"),
+            ("test-coverage", "# Step 3: 테스트 커버리지 개선"),
+        ],
+    },
+    "Ruby": {
+        "0-mvp": [
+            (
+                "project-setup",
+                "# Step 0: 프로젝트 초기 설정\n"
+                "\n## 작업 내용\n"
+                "- Gemfile 초기화 (`bundle init`)\n"
+                "- 의존성 설정: Rails 또는 Sinatra, RSpec, rubocop\n"
+                "- 프로젝트 스캐폴딩 (`rails new` 또는 `sinatra`) \n"
+                "- 환경변수 설정 (`.env.example` → `.env`, dotenv)\n"
+                "- 린트/테스트 설정 (`.rubocop.yml`, `spec/`)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] `bundle install` 성공\n"
+                "- [ ] `bin/rails server` (또는 `ruby app.rb`) 실행 시 서버 시작\n"
+                "- [ ] `rubocop` 에러 없이 통과\n"
+                "- [ ] `bundle exec rspec` 통과\n",
+            ),
+            (
+                "core-logic",
+                "# Step 1: 핵심 비즈니스 로직",
+            ),
+            (
+                "api-layer",
+                "# Step 2: API 레이어",
+            ),
+        ],
+        "1-polish": [
+            ("error-handling", "# Step 0: 에러 핸들링 정비"),
+            ("security-hardening", "# Step 1: 보안 강화"),
+            ("performance-audit", "# Step 2: 성능 감사"),
+            ("docs-refinement", "# Step 3: 문서 정비"),
+            ("e2e-testing", "# Step 4: E2E 테스트"),
+        ],
+        "maintenance": [
+            ("bugfix-critical", "# Step 0: 치명적 버그 수정"),
+            ("refactor-hotspot", "# Step 1: 핫스팟 리팩토링"),
+            ("deps-update", "# Step 2: 의존성 업데이트"),
+            ("test-coverage", "# Step 3: 테스트 커버리지 개선"),
+        ],
+    },
+    "Java": {
+        "0-mvp": [
+            (
+                "project-setup",
+                "# Step 0: 프로젝트 초기 설정\n"
+                "\n## 작업 내용\n"
+                "- 빌드 도구 초기화 (`mvn archetype:generate` 또는 `gradle init`)\n"
+                "- 의존성 설정: Spring Boot, JUnit, checkstyle/spotless\n"
+                "- 프로젝트 스캐폴딩 (`src/main/java/`, `src/test/java/`)\n"
+                "- 환경변수 설정 (`application.yml`)\n"
+                "\n## AC (Acceptance Criteria)\n"
+                "- [ ] `./mvnw clean compile` (또는 `./gradlew build`) 성공\n"
+                "- [ ] `./mvnw spring-boot:run` 실행 시 서버 시작\n"
+                "- [ ] `./mvnw test` 통과\n",
+            ),
+            (
+                "core-logic",
+                "# Step 1: 핵심 비즈니스 로직",
+            ),
+            (
+                "api-layer",
+                "# Step 2: API 레이어",
+            ),
+        ],
+        "1-polish": [
+            ("error-handling", "# Step 0: 에러 핸들링 정비"),
+            ("security-hardening", "# Step 1: 보안 강화"),
+            ("performance-audit", "# Step 2: 성능 감사"),
+            ("docs-refinement", "# Step 3: 문서 정비"),
+            ("e2e-testing", "# Step 4: E2E 테스트"),
+        ],
+        "maintenance": [
+            ("bugfix-critical", "# Step 0: 치명적 버그 수정"),
+            ("refactor-hotspot", "# Step 1: 핫스팟 리팩토링"),
+            ("deps-update", "# Step 2: 의존성 업데이트"),
+            ("test-coverage", "# Step 3: 테스트 커버리지 개선"),
+        ],
+    },
+    "Swift": {
+        "0-mvp": [
+            (
+                "project-setup",
+                "# Step 0: 프로젝트 초기 설정",
+            ),
+            (
+                "core-logic",
+                "# Step 1: 핵심 비즈니스 로직",
+            ),
+            (
+                "api-layer",
+                "# Step 2: API 레이어",
+            ),
+        ],
+        "1-polish": [
+            ("error-handling", "# Step 0: 에러 핸들링 정비"),
+            ("security-hardening", "# Step 1: 보안 강화"),
+            ("performance-audit", "# Step 2: 성능 감사"),
+            ("docs-refinement", "# Step 3: 문서 정비"),
+            ("e2e-testing", "# Step 4: E2E 테스트"),
+        ],
+        "maintenance": [
+            ("bugfix-critical", "# Step 0: 치명적 버그 수정"),
+            ("refactor-hotspot", "# Step 1: 핫스팟 리팩토링"),
+            ("deps-update", "# Step 2: 의존성 업데이트"),
+            ("test-coverage", "# Step 3: 테스트 커버리지 개선"),
+        ],
+    },
+}
+
+
+def _generate_step_files(
+    target: Path,
+    stack_list: list[str],
+) -> None:
+    """감지된 기술 스택에 맞게 step 파일을 생성한다."""
+    # 지원 언어 선택: 첫 번째 매칭
+    lang = None
+    for item in stack_list:
+        for supported in STEP_TEMPLATES:
+            if item.lower() == supported.lower():
+                lang = supported
+                break
+        if lang:
+            break
+
+    if not lang:
+        return  # 미지원 언어 → 기존 템플릿 유지
+
+    template = STEP_TEMPLATES[lang]
+
+    for phase_name, steps in template.items():
+        phase_dir = target / "phases" / phase_name
+        if not phase_dir.is_dir():
+            continue
+
+        for step_num, (name, content) in enumerate(steps):
+            step_file = phase_dir / f"step{step_num}.md"
+            step_file.write_text(content, encoding="utf-8")
+
+        print(f"  ~ phases/{phase_name}/ step files → {lang}용으로 생성 ({len(steps)}개)")
+
+
+# =========================================================================
 #  apply — 기존 프로젝트에 하네스 템플릿 적용
 # =========================================================================
 
 def _detect_tech_stack(target: Path) -> str:
     """대상 프로젝트의 기술 스택을 분석하여 반환한다."""
+    stack_list = _detect_tech_stack_raw(target)
+    if not stack_list:
+        return ""
+    return ", ".join(stack_list)
+
+
+def _detect_tech_stack_raw(target: Path) -> list[str]:
+    """기술 스택을 리스트로 반환한다."""
     detected = []
 
     # 언어/프레임워크 감지 맵
@@ -241,6 +580,11 @@ def _apply_template(target: Path, *, project_name: Optional[str], tech_stack: Op
             else:
                 shutil.copy2(src_path, dst_path)
                 print(f"  + {name}")
+
+    # 기술 스택에 맞춰 step 파일 재생성
+    stack_list = _detect_tech_stack_raw(target)
+    if stack_list:
+        _generate_step_files(target, stack_list)
 
     # Placeholder 치환
     replacements = {
