@@ -585,6 +585,8 @@ def _apply_template(target: Path, *, project_name: Optional[str], tech_stack: Op
     stack_list = _detect_tech_stack_raw(target)
     if stack_list:
         _generate_step_files(target, stack_list)
+        detected_stack_str = ", ".join(stack_list)
+        print(f"  Stack:   {detected_stack_str}")
 
     # Placeholder 치환
     replacements = {
@@ -592,6 +594,9 @@ def _apply_template(target: Path, *, project_name: Optional[str], tech_stack: Op
     }
     if tech_stack:
         replacements["{기술 스택}"] = tech_stack
+    elif stack_list:
+        # 자동 감지된 스택을 placeholder 치환에 사용
+        replacements["{기술 스택}"] = ", ".join(stack_list)
 
     replace_files = [
         target / "CLAUDE.md",
@@ -692,16 +697,23 @@ def _count_remaining_placeholders(target: Path) -> int:
     """파일에서 치환되지 않은 {placeholder} 개수를 센다."""
     count = 0
     pattern = re.compile(r"\{[^}]+\}")
+    skip_dirs = {".git", "node_modules", ".Trash", "__pycache__"}
     for fpath in target.rglob("*.md"):
-        if any(p.name in str(fpath) for p in [target / ".git"]):
+        if any(d in str(fpath) for d in skip_dirs):
             continue
-        content = fpath.read_text(encoding="utf-8")
-        count += len(pattern.findall(content))
+        try:
+            content = fpath.read_text(encoding="utf-8")
+            count += len(pattern.findall(content))
+        except UnicodeDecodeError:
+            pass
     for fpath in target.rglob("*.json"):
-        if any(p.name in str(fpath) for p in [target / ".git"]):
+        if any(d in str(fpath) for d in skip_dirs):
             continue
-        content = fpath.read_text(encoding="utf-8")
-        count += len(pattern.findall(content))
+        try:
+            content = fpath.read_text(encoding="utf-8")
+            count += len(pattern.findall(content))
+        except UnicodeDecodeError:
+            pass
     return count
 
 
