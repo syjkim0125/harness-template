@@ -448,7 +448,7 @@ def _detect_tech_stack_raw(target: Path) -> list[str]:
                 break
 
     if not detected:
-        return ""
+        return []
 
     # 중복 제거, 순서 유지
     seen = set()
@@ -458,7 +458,7 @@ def _detect_tech_stack_raw(target: Path) -> list[str]:
             seen.add(item)
             unique.append(item)
 
-    return ", ".join(unique)
+    return unique
 
 
 def _parse_package_json(content: str) -> list[str]:
